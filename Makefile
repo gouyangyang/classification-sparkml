@@ -21,10 +21,10 @@ aws.region=us-east-1
 aws.bucket.name=vmr-classification
 aws.subnet.id=subnet-45af730e
 
-aws.input=split_input
+aws.input=input
 aws.output=output
 aws.log.dir=logs
-aws.num.nodes=15
+aws.num.nodes=18
 aws.instance.type=m4.large
 # -----------------------------------------------------------
 

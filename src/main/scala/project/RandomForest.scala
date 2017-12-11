@@ -7,6 +7,7 @@ import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.{RandomForestClassificationModel, RandomForestClassifier}
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.feature.{IndexToString, StringIndexer, VectorIndexer}
+import org.apache.spark.mllib.util.MLUtils
 
 /**
   * Created by vyshaalnarayanam on 12/1/17.
@@ -28,8 +29,20 @@ object RandomForest {
       (label, Vectors.dense(features.split(",").map(_.toDouble)))
     }.toDF("label", "features").cache()
 
-    val splits = training_df.randomSplit(Array(0.7, 0.3))
+    val size = training_df.count()
+    val negativeCount = training_df.filter(training_df("label")===0).count()
+    val balancingRatio = 1 - (negativeCount*1.0/size)
+
+    val splits = training_df.filter(training_df("label")===0).sample(true,balancingRatio*10)
+      .union(training_df.filter(training_df("label")===1)).randomSplit(Array(0.7, 0.3))
+
     val (trainingData, validatingData) = (splits(0), splits(1))
+
+    trainingData.cache()
+    validatingData.cache()
+//    val tdc = trainingData.count()
+//    val vdc = validatingData.count()
+//    trainingData.show()
 
     val testing_df = testing_rdd.map { line =>
       val parts = line.toString().split(",")
@@ -50,7 +63,7 @@ object RandomForest {
       .setMaxCategories(4)
       .fit(training_df)
 
-    val treeCount = 20
+    val treeCount = 10
     val rf = new RandomForestClassifier()
       .setLabelCol("label")
       .setFeaturesCol("features")
@@ -97,7 +110,7 @@ object RandomForest {
     val predictions1 = model.transform(testing_df)
 
     predictions1.select("prediction").write.csv(args(1)+"/labels")
-    var stats = spark.sparkContext.parallelize(Seq(accuracy,treeCount))
+    var stats = spark.sparkContext.parallelize(Seq(treeCount,balancingRatio,accuracy))
     stats.saveAsTextFile(args(1)+"/stats")
 
   }
